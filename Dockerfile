@@ -10,13 +10,13 @@ RUN apt-get update && apt-get install -y git wget
 RUN pip install --upgrade pip
 
 # Install Deps
+ADD requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+
 RUN pip install -q -U bitsandbytes
 RUN pip install -q -U git+https://github.com/huggingface/transformers.git
 RUN pip install -q -U git+https://github.com/huggingface/peft.git
 RUN pip install -q -U git+https://github.com/huggingface/accelerate.git
-
-ADD requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
 
 # Add your model weight files 
 ADD download.py .
