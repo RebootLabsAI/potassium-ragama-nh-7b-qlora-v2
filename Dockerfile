@@ -9,9 +9,11 @@ RUN apt-get update && apt-get install -y git wget
 # Upgrade pip
 RUN pip install --upgrade pip
 
-# Download and install specific version of AutoGPTQ from GitHub release
-RUN wget https://github.com/PanQiWei/AutoGPTQ/releases/download/v0.3.2/auto_gptq-0.3.2+cu117-cp38-cp38-linux_x86_64.whl && \
-    GITHUB_ACTIONS=true pip3 install auto_gptq-0.3.2+cu117-cp38-cp38-linux_x86_64.whl
+# Install Deps
+RUN pip install -q -U bitsandbytes
+RUN pip install -q -U git+https://github.com/huggingface/transformers.git
+RUN pip install -q -U git+https://github.com/huggingface/peft.git
+RUN pip install -q -U git+https://github.com/huggingface/accelerate.git
 
 ADD requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt

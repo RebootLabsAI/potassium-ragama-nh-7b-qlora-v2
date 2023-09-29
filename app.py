@@ -1,27 +1,29 @@
 from potassium import Potassium, Request, Response
-from transformers import AutoTokenizer
-from auto_gptq import AutoGPTQForCausalLM
+import torch
+from peft import PeftModel    
+from transformers import AutoModelForCausalLM, AutoTokenizer, LlamaTokenizer, StoppingCriteria, StoppingCriteriaList, TextIteratorStreamer
 
-MODEL_NAME_OR_PATH = "TheBloke/Dolphin-Llama2-7B-GPTQ"
-DEVICE = "cuda:0"
+model_name = "NousResearch/Nous-Hermes-llama-2-7b"
+adapters_name = "rebootai/ragama-nh-7b-qlora-v2"
 
-app = Potassium("Dolphin-Llama2-7B-GPTQ")
+app = Potassium("ragama-nh-7b-qlora-v2")
 
 @app.init
 def init() -> dict:
     """Initialize the application with the model and tokenizer."""
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME_OR_PATH, use_fast=True)
-
-    model = AutoGPTQForCausalLM.from_quantized(MODEL_NAME_OR_PATH,
-            use_safetensors=True,
-            trust_remote_code=False,
-            device="cuda:0",
-            use_triton=False,
-            quantize_config=None)
+    m = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.bfloat16,
+        device_map={"": 0}
+    )
+    m = PeftModel.from_pretrained(m, adapters_name)
+    m = m.merge_and_unload()
+    tok = LlamaTokenizer.from_pretrained(model_name)
+    tok.bos_token_id = 1
 
     return {
-        "model": model,
-        "tokenizer": tokenizer
+        "model": m,
+        "tokenizer": tok
     }
     
 @app.handler()
@@ -32,11 +34,7 @@ def handler(context: dict, request: Request) -> Response:
     max_new_tokens = request.json.get("max_new_tokens", 512)
     temperature = request.json.get("temperature", 0.7)
     prompt = request.json.get("prompt")
-    system_message = "You are a helpful assistant"
-    prompt_template=f'''SYSTEM: {system_message}
-    USER: {prompt}
-    ASSISTANT:
-    '''
+    prompt_template=f'''### {prompt} ### Response: \n'''
     input_ids = tokenizer(prompt_template, return_tensors='pt').input_ids.cuda()
     output = model.generate(inputs=input_ids, temperature=temperature, max_new_tokens=max_new_tokens)
     result = tokenizer.decode(output[0])
